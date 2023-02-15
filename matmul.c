@@ -2,30 +2,48 @@
 #include<stdlib.h>
 #include<omp.h>
 
-int main()
+void fun(long long int n, int nthreads)
 {
-    int n = 1000;
-    int i,j,k;
+    double t = omp_get_wtime();
 
-    int *A = malloc((n*n)*sizeof(int));
-    int *B = malloc((n*n)*sizeof(int));
-    int *C = malloc((n*n)*sizeof(int));
+    // allocate memory
+    int *A = (int*)malloc(n*n*sizeof(int));
+    int *B = (int*)malloc(n*n*sizeof(int));
+    int *C = (int*)malloc(n*n*sizeof(int));
 
+    // initialize with random values
     for(int i=0; i<n; i++)
         for(int j=0; j<n; j++)
         {
-            A[i*n + j] = i*j;
-            B[i*n + j] = i+j;
+            A[i*n + j] = i+j;
+            B[i*n + j] = i-j;
             C[i*n + j] = 0;
         }
-    
-    double t = omp_get_wtime();
-    #pragma omp parallel for num_threads(8) private(i,j,k)
+
+    // perform multiplication
+    int i,j,k;
+
+    #pragma omp parallel for num_threads(nthreads) private(i,j,k)
     for(i=0; i<n; i++)
         for(j=0; j<n; j++)
             for(k=0; k<n; k++)
-                C[i*n + j] += A[i*n + k] * B[k*n + j];
+                C[i*n + j] += A[i*n + k] + B[k*n + j];
     
-    printf("time taken = %lf\n", omp_get_wtime()-t);
+    printf("time:%lf", omp_get_wtime()-t);
+}
+
+int main()
+{
+    for(int t=1; t<=8; t*=2)
+    {
+        printf("\nFor %d threads", t);
+        for(long long int n=1000; n<=1200; n+=200)
+        {
+            printf("\nn:%lld ", n);
+            fun(n,t);
+        }
+    }
+    printf("\n");
+
     return 0;
 }
