@@ -160,7 +160,8 @@ void cacheParallelSieve(llint n)
 
 int main()
 {
-    llint n = 1000;
+    // give a very large value, else graph will not be proper
+    llint n = 100000000;
 
     cacheUnfriendlySieve(n);
 
