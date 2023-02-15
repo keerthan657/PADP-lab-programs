@@ -1,13 +1,13 @@
 #include<stdio.h>
 #include<stdlib.h>
-#include<math.h>    // use -lm compiling flag
+#include<math.h>
 #include<omp.h>
-#include<string.h>
 
 #define true 1
 #define false 0
+#define llint long long int
 
-long long int minimum(long long int x, long long int y)
+llint minimum(llint x, llint y)
 {
     if(x<y)
         return x;
@@ -15,122 +15,113 @@ long long int minimum(long long int x, long long int y)
         return y;
 }
 
-void setArray(int* arr, int val, long long int size)
+void setArray(int *arr, int val, llint n)
 {
-    for(long long int i=2; i<=size; i++)
-        arr[i] = val;
+    for(llint i=0; i<n; i++)
+        *(arr+i) = val;
 }
 
-long long int strike(int *composite, long long int i, long long int stride, long long int limit)
+llint strike(int *composite, llint i, llint stride, llint limit)
 {
-    // for multiples starting from i*i, mark them
-    for(; i<=limit; i+=stride)
-        composite[i] = true;
+    for(;i<=limit; i+=stride)
+        *(composite+i) = true;
     
     return i;
 }
 
-void cache_unfriendly_sieve(long long int n)
+void cacheUnfriendlySieve(llint n)
 {
-    int cnt=0;
-    long long int sqrt_n = (long long int)sqrt(n);
+    int cnt = 0;
+    llint m = (llint)sqrt(n);
 
-    // initialize composite array to false
-    int* composite = malloc((n+1)*sizeof(int));
+    int *composite = (int *)malloc((n+1)*sizeof(int));
     setArray(composite, false, n);
 
     double t = omp_get_wtime();
-    // for each prime encountered, eliminate its multiples
-    for(long long int i=2; i<=sqrt_n; i++)
+    for(llint i=2; i<=m; i++)
     {
-        // if not composite (i.e. prime), strike out all its multiples
         if(!composite[i])
         {
             strike(composite, 2*i, i, n);
             cnt++;
         }
     }
-    for(long long int i=sqrt_n+1; i<=n; i++)
+    for(llint i=m+1; i<=n; i++)
     {
         if(!composite[i])
             cnt++;
     }
+    
+    printf("\nCUS: count=%d, time=%lf", cnt, omp_get_wtime()-t);
 
     free(composite);
-
-    printf("CACHE UNFRIENDLY SIEVE - %d primes found, time taken=%lf\n", cnt, omp_get_wtime()-t);
 }
 
-void cache_friendly_sieve(long long int n)
+void cacheFriendlySieve(llint n)
 {
     int cnt=0;
-    long long int sqrt_n = (long long int)sqrt(n);
+    llint m = (llint)sqrt(n);
 
-    // initialize composite array to false
-    int* composite = malloc((n+1)*sizeof(int));
+    int *composite = (int *)malloc((n+1)*sizeof(int));
     setArray(composite, false, n);
-    // create new arrays - factor & striker - with size sqrt_n
-    long long int* factor  = malloc(sqrt_n*sizeof(int));
-    long long int* striker = malloc(sqrt_n*sizeof(int));
-    long long int n_factor = 0;
+
+    llint *factor = (llint *)malloc(m*sizeof(llint));
+    llint *striker = (llint *)malloc(m*sizeof(llint));
+    llint n_factor = 0;
 
     double t = omp_get_wtime();
-    // for each prime encountered, eliminate its multiples
-    for(long long int i=2; i<=sqrt_n; i++)
+    for(llint i=2; i<=m; i++)
     {
-        // if not composite (i.e. prime), strike out all its multiples
         if(!composite[i])
         {
-            striker[n_factor] = strike(composite, 2*i, i, sqrt_n);
+            striker[n_factor] = strike(composite, 2*i, i, m);
             factor[n_factor] = i;
             n_factor++;
             cnt++;
         }
     }
 
-    // chop all elements into windows of size sqrt_n
-    for(long long int window=sqrt_n+1; window<=n; window+=sqrt_n)
+    for(llint window=m+1; window<=n; window+=m)
     {
-        long long int limit = minimum(window+sqrt_n-1, n);
-        for(long long int k=0; k<n_factor; k++)
+        llint limit = minimum(window+m-1, n);
+        for(llint k=0; k<n_factor; k++)
             striker[k] = strike(composite, striker[k], factor[k], limit);
         
-        for(long long int i=window; i<=limit; i++)
+        for(llint i=window; i<=limit; i++)
             if(!composite[i])
                 cnt++;
     }
 
+    printf("\nCFS: count=%d, time=%lf", cnt, omp_get_wtime()-t);
+
     free(composite);
     free(factor);
     free(striker);
-
-    printf("CACHE   FRIENDLY SIEVE - %d primes found, time taken=%lf\n", cnt, omp_get_wtime()-t);
 }
 
-void parallel_sieve(long long int n, int numThreads)
+void cacheParallelSieve(llint n)
 {
-    int cnt=0;
-    long long int sqrt_n = (long long int)sqrt(n);
-
-    long long int* factor = malloc(sqrt_n*sizeof(int));
-    long long int n_factor = 0;
+    int cnt = 0;
+    llint m = (llint)sqrt(n);
+    
+    llint *factor = (llint *)malloc(m*sizeof(llint));
+    llint n_factor = 0;
 
     double t = omp_get_wtime();
-    omp_set_num_threads(numThreads);
-
+    omp_set_num_threads(4);
     #pragma omp parallel
     {
-        int* composite = malloc((n+1)*sizeof(int));
-        long long int* striker = malloc(sqrt_n*sizeof(long long int));
+        int *composite = (int *)malloc((n+1)*sizeof(int));
+        llint *striker = (llint *)malloc(m*sizeof(llint));
 
         #pragma omp single
         {
-            setArray(composite, false, sqrt_n);
-            for(long long int i=2; i<=sqrt_n; i++)
+            setArray(composite, false, m);// mn
+            for(llint i=2; i<=m; i++)
             {
                 if(!composite[i])
                 {
-                    striker[n_factor] = strike(composite, 2*i, i, sqrt_n);
+                    striker[n_factor] = strike(composite, 2*i, i, m);
                     factor[n_factor] = i;
                     n_factor++;
                     cnt++;
@@ -138,47 +129,45 @@ void parallel_sieve(long long int n, int numThreads)
             }
         }
 
-        long long int base = -1;
+        llint base = -1;
         #pragma omp for reduction(+:cnt)
-        for(long long int window=sqrt_n+1; window<=n; window+=sqrt_n)
+        for(llint window=m+1; window<=n; window+=m)
         {
-            setArray(composite, false, sqrt_n);
+            setArray(composite, false, m);
             if(base!=window)
             {
-                // compute striker from scratch
                 base = window;
-                for(long long int k=0; k<n_factor; k++)
+                for(llint k=0; k<n_factor; k++)
                     striker[k] = (base+factor[k]-1)/factor[k] * factor[k] - base;
             }
 
-            long long int limit = minimum(window+sqrt_n-1, n) - base;
-            for(long long int k=0; k<n_factor; k++)
-                striker[k] = strike(composite, striker[k], factor[k], limit) - sqrt_n;
-            
-            for(long long int i=0; i<=limit; i++)
+            llint limit = minimum(window+m-1, n) - base;
+            for(llint k=0; k<n_factor; k++)
+                striker[k] = strike(composite, striker[k], factor[k], limit) - m;
+            for(llint i=0; i<=limit; i++)
                 if(!composite[i])
                 cnt++;
             
-            base += sqrt_n;
+            base += m;
         }
         free(composite);
         free(striker);
     }
-
     free(factor);
 
-    printf("CACHE   PARALLEL SIEVE - %d primes found, time taken=%lf\n", cnt, omp_get_wtime()-t);
+    printf("\nCPS: count=%d, time=%lf", cnt, omp_get_wtime()-t);
 }
 
 int main()
 {
-    long long int n = 1000000;
+    llint n = 1000;
 
-    cache_unfriendly_sieve(n);
+    cacheUnfriendlySieve(n);
 
-    cache_friendly_sieve(n);
+    cacheFriendlySieve(n);
 
-    parallel_sieve(n, 16);
+    cacheParallelSieve(n);
 
+    printf("\n");
     return 0;
 }
