@@ -1,31 +1,33 @@
 #include<stdio.h>
 #include<mpi.h>
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
 
-    int size, rank;
-    MPI_Comm_Size(MPI_COMM_WORLD, &size);
-    MPI_Comm_Rank(MPI_COMM_WORLD, &rank);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int root=0, tag=0;
-    char message[100];
     char messages[][100] = {"HELLO", "CSE", "RVCE"};
-    if(rank!=root)
+    char buffer[100];
+
+    if(rank==0)
     {
-        message = messages[rank-1];
-        MPI_Send(message, 100, MPI_CHAR, root, tag, MPI_COMM_WORLD);
+        // receive from other processes
+        for(int i=1; i<size; i++)
+        {
+            MPI_Recv(buffer, 100, MPI_CHAR, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("\nreceived %s from process %d", buffer, i);
+        }
     }
     else
     {
-        for(int i=1; i<size; i++)
-        {
-            MPI_Recv(message, 100, MPI_CHAR, i, tag, MPI_COMM_WORLD);
-            printf("%s received from process with rank %d\n", message, i);
-        }
+        // send to rank-0 process
+        MPI_Send(messages[rank-1], 100, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
     }
-    MPI_Finalize();
 
+    MPI_Finalize();
+    printf("\n");
     return 0;
 }
